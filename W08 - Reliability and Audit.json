@@ -1,0 +1,727 @@
+{
+  "name": "W08 - Reliability and Audit",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "42bd5fc9-9c23-4f08-b894-4f18199d8a1e",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -528,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "183bfaa8-1f4b-43ec-99ef-6f75133f99c4",
+              "leftValue": "={{ $json.audit_event }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6692537b-5c17-4515-afdc-d2cde21e89c3",
+      "name": "Is Audit Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "audit_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "run_id",
+              "fieldValue": "={{ $json.run_id }}"
+            },
+            {
+              "fieldId": "component",
+              "fieldValue": "={{ $json.component }}"
+            },
+            {
+              "fieldId": "event_type",
+              "fieldValue": "={{ $json.audit_event }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.severity === 'ERROR' ? 'failed' : 'ok' }}"
+            },
+            {
+              "fieldId": "details",
+              "fieldValue": "={{ JSON.stringify($json.run_summary || $json.failure || {}) }}"
+            }
+          ]
+        }
+      },
+      "id": "a5813b65-3cea-479a-97b7-85c7c573a011",
+      "name": "Log Audit Event",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Is Audit Event?').first().json;\nreturn [{ json: { logged: true, audit_event: d.audit_event, run_id: d.run_id } }];"
+      },
+      "id": "b90343ae-0fc5-4f9a-b63f-c50689ca8643",
+      "name": "Audit Logged",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "yNWKSUkBytuKQiTx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/yNWKSUkBytuKQiTx",
+          "cachedResultName": "W05 - AI Analysis,"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "e260b7d0-da56-4df3-a1a6-6bee11e765ba",
+      "name": "AI Attempt 1",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -176,
+        432
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "yNWKSUkBytuKQiTx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/yNWKSUkBytuKQiTx",
+          "cachedResultName": "W05 - AI Analysis,"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "1b331dc6-d068-44c7-929e-b71ae8c831df",
+      "name": "AI Attempt 2",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        544,
+        640
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "yNWKSUkBytuKQiTx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/yNWKSUkBytuKQiTx",
+          "cachedResultName": "W05 - AI Analysis,"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "616acd68-e188-4868-9d81-370c726a18a6",
+      "name": "AI Attempt 3",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1232,
+        784
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "tableId": "audit_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "run_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').first().json.run_id }}"
+            },
+            {
+              "fieldId": "component",
+              "fieldValue": "W05 AI Analysis"
+            },
+            {
+              "fieldId": "event_type",
+              "fieldValue": "ai_attempt_failed"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "failed"
+            },
+            {
+              "fieldId": "details",
+              "fieldValue": "={{ JSON.stringify({attempt: 1, error: ($json.error && $json.error.message) ? $json.error.message : String($json.error || 'AI call failed')}) }}"
+            }
+          ]
+        }
+      },
+      "id": "4df87eb2-40cb-4f1a-98bf-3bac71bebf4d",
+      "name": "Log Failure 1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        640
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "audit_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "run_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').first().json.run_id }}"
+            },
+            {
+              "fieldId": "component",
+              "fieldValue": "W05 AI Analysis"
+            },
+            {
+              "fieldId": "event_type",
+              "fieldValue": "ai_attempt_failed"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "failed"
+            },
+            {
+              "fieldId": "details",
+              "fieldValue": "={{ JSON.stringify({attempt: 2, error: ($json.error && $json.error.message) ? $json.error.message : String($json.error || 'AI call failed')}) }}"
+            }
+          ]
+        }
+      },
+      "id": "d69112fe-dca7-4021-80e9-b34551cbec1e",
+      "name": "Log Failure 2",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        656,
+        784
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "audit_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "run_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').first().json.run_id }}"
+            },
+            {
+              "fieldId": "component",
+              "fieldValue": "W05 AI Analysis"
+            },
+            {
+              "fieldId": "event_type",
+              "fieldValue": "ai_attempt_failed"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "failed"
+            },
+            {
+              "fieldId": "details",
+              "fieldValue": "={{ JSON.stringify({attempt: 3, error: ($json.error && $json.error.message) ? $json.error.message : String($json.error || 'AI call failed')}) }}"
+            }
+          ]
+        }
+      },
+      "id": "b183cdb1-a598-4fe6-b6e1-db6ec283129b",
+      "name": "Log Failure 3",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        800
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('When Executed by Another Workflow').first().json }];"
+      },
+      "id": "d9626c3e-4173-49e9-936d-273e18474fae",
+      "name": "Restore Payload 2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('When Executed by Another Workflow').first().json }];"
+      },
+      "id": "774c680c-79a7-4a5c-9b01-7cd0cd862539",
+      "name": "Restore Payload 3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$input.first().json, action_taken: 'ai_ok' } }];"
+      },
+      "id": "68714c4f-ee5d-4aa0-997d-0a12183385e0",
+      "name": "Prep Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "audit_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "run_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').first().json.run_id }}"
+            },
+            {
+              "fieldId": "component",
+              "fieldValue": "W05 AI Analysis"
+            },
+            {
+              "fieldId": "event_type",
+              "fieldValue": "ai_success"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "ok"
+            },
+            {
+              "fieldId": "details",
+              "fieldValue": "={{ JSON.stringify({note: 'AI analysis completed'}) }}"
+            }
+          ]
+        }
+      },
+      "id": "77d17614-0874-4323-a4d2-f285a4901817",
+      "name": "Log AI Success",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1776,
+        416
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Prep Success').first().json }];"
+      },
+      "id": "1852accf-bea4-4352-8303-bf43c6ebdcb5",
+      "name": "Return AI Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('When Executed by Another Workflow').first().json;\nconst m = n => 'N' + (Number(n) / 1e6).toFixed(2) + 'm';\nconst price = Number(d.fuel_price || 1250);\nconst pct = Math.round((price - 1250) / 1250 * 100);\nconst extra = 2880 * (price - 1250);\nconst inv = (d.open_invoices || [])[0];\nconst urgency = d.risk_state === 'CRITICAL' ? 'CRITICAL'\n  : d.risk_state === 'AT_RISK' ? 'HIGH' : 'MEDIUM';\nreturn [{ json: {\n  company_id: d.company_id,\n  run_id: d.run_id,\n  risk_state: d.risk_state,\n  summary: `Cash is projected to fall to ${m(d.minimum_projected_balance)} on Day ${d.day_of_minimum}, below the N4.00m safety buffer.`,\n  cause: `Diesel has risen ${pct}% to N${price} per litre, adding ${m(extra)} to each weekly fuel payment.`,\n  urgency,\n  actions: [\n    inv ? `Ask ${inv.client_name} to pay ${inv.invoice_id} (${m(inv.amount)}) early, offering a 2% early-payment discount.`\n        : 'Ask the largest client with an open invoice to pay early, offering a 2% discount.',\n    `Ask Harbour Fuels to split the next fuel payment (${m(2880 * price)}) into two instalments.`,\n    'Apply a temporary fuel surcharge to new invoices and review routes to cut fuel use by 10%.'\n  ],\n  ai_source: 'fallback',\n  action_taken: 'fallback'\n} }];"
+      },
+      "id": "e95024cd-b082-4336-994d-472fe2593aa0",
+      "name": "Build Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "audit_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "run_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').first().json.run_id }}"
+            },
+            {
+              "fieldId": "component",
+              "fieldValue": "W08 Reliability"
+            },
+            {
+              "fieldId": "event_type",
+              "fieldValue": "fallback_used"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "fallback"
+            },
+            {
+              "fieldId": "details",
+              "fieldValue": "={{ JSON.stringify({reason: 'AI failed 3 times', action_taken: 'fallback'}) }}"
+            }
+          ]
+        }
+      },
+      "id": "43cb4d6d-ef3b-4855-82e7-142b1cb64ff5",
+      "name": "Log Fallback",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2064,
+        800
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Build Fallback').first().json }];"
+      },
+      "id": "ec5bfc1f-b7ba-41da-8867-c6fc10c31113",
+      "name": "Return Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        800
+      ]
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "company_id": "BP-001",
+          "run_id": "W8-T1",
+          "risk_state": "CRITICAL",
+          "minimum_projected_balance": 970000,
+          "day_of_minimum": 14,
+          "days_to_breach": 9,
+          "current_cash": 16000000,
+          "fuel_price": 2000,
+          "open_invoices": [
+            {
+              "invoice_id": "INV-1041",
+              "client_name": "Coastal Beverages Ltd",
+              "amount": 6400000,
+              "due_day": 15
+            },
+            {
+              "invoice_id": "INV-1046",
+              "client_name": "Delta Build Supplies",
+              "amount": 4800000,
+              "due_day": 19
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Is Audit Event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Audit Event?": {
+      "main": [
+        [
+          {
+            "node": "Log Audit Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Attempt 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Audit Event": {
+      "main": [
+        [
+          {
+            "node": "Audit Logged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Attempt 1": {
+      "main": [
+        [
+          {
+            "node": "Prep Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Failure 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Failure 1": {
+      "main": [
+        [
+          {
+            "node": "Restore Payload 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Payload 2": {
+      "main": [
+        [
+          {
+            "node": "AI Attempt 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Attempt 2": {
+      "main": [
+        [
+          {
+            "node": "Prep Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Failure 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Failure 2": {
+      "main": [
+        [
+          {
+            "node": "Restore Payload 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Payload 3": {
+      "main": [
+        [
+          {
+            "node": "AI Attempt 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Attempt 3": {
+      "main": [
+        [
+          {
+            "node": "Prep Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Failure 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Failure 3": {
+      "main": [
+        [
+          {
+            "node": "Build Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Success": {
+      "main": [
+        [
+          {
+            "node": "Log AI Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log AI Success": {
+      "main": [
+        [
+          {
+            "node": "Return AI Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Fallback": {
+      "main": [
+        [
+          {
+            "node": "Log Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Fallback": {
+      "main": [
+        [
+          {
+            "node": "Return Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "9c900b74-5f86-49e6-8cff-a263e39787c6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7cc6ab146e7286db115c5308299848109c07d40b25093c59a6def55feac27966"
+  },
+  "nodeGroups": [],
+  "id": "JzZV8aCmrWlToVK7",
+  "tags": []
+}

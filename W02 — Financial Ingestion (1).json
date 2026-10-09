@@ -1,0 +1,1307 @@
+{
+  "name": "W02 — Financial Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "brightpath/financial-ingestion",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a5f9d07f-22ee-49b0-a747-6568e74ce073",
+      "name": "Webhook",
+      "webhookId": "5256cf2e-cdda-4b79-af6f-13b2fcf26514"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body ?? $json.event ?? $json;\n\nconst errors = [];\n\n// --------------------------------------------------\n// COMMON REQUIRED FIELDS\n// --------------------------------------------------\n\nif (!body.event_type) {\n  errors.push(\"Missing required field: event_type\");\n}\n\nif (!body.company_id) {\n  errors.push(\"Missing required field: company_id\");\n}\n\nif (!body.event_id) {\n  errors.push(\"Missing required field: event_id\");\n}\n\n\n// --------------------------------------------------\n// FUEL PRICE UPDATE\n// --------------------------------------------------\n\nif (body.event_type === \"fuel_price_update\") {\n\n  if (!body.fuel) {\n    errors.push(\"Missing required field: fuel\");\n  }\n\n  if (body.old_price === undefined || body.old_price === null) {\n    errors.push(\"Missing required field: old_price\");\n  } else if (\n    typeof body.old_price !== \"number\" ||\n    !Number.isFinite(body.old_price)\n  ) {\n    errors.push(\"old_price must be a valid number\");\n  } else if (body.old_price <= 0) {\n    errors.push(\"old_price must be greater than zero\");\n  }\n\n  if (body.new_price === undefined || body.new_price === null) {\n    errors.push(\"Missing required field: new_price\");\n  } else if (\n    typeof body.new_price !== \"number\" ||\n    !Number.isFinite(body.new_price)\n  ) {\n    errors.push(\"new_price must be a valid number\");\n  } else if (body.new_price <= 0) {\n    errors.push(\"new_price must be greater than zero\");\n  }\n}\n\n\n// --------------------------------------------------\n// PAYMENT RECEIVED\n// --------------------------------------------------\n\nelse if (body.event_type === \"payment_received\") {\n\n  if (!body.invoice_id) {\n    errors.push(\"Missing required field: invoice_id\");\n  }\n\n  if (body.amount === undefined || body.amount === null) {\n    errors.push(\"Missing required field: amount\");\n  } else if (\n    typeof body.amount !== \"number\" ||\n    !Number.isFinite(body.amount)\n  ) {\n    errors.push(\"amount must be a valid number\");\n  } else if (body.amount <= 0) {\n    errors.push(\"amount must be greater than zero\");\n  }\n\n  if (body.payment_day === undefined || body.payment_day === null) {\n    errors.push(\"Missing required field: payment_day\");\n  } else if (\n    typeof body.payment_day !== \"number\" ||\n    !Number.isInteger(body.payment_day)\n  ) {\n    errors.push(\"payment_day must be an integer\");\n  } else if (body.payment_day < 0) {\n    errors.push(\"payment_day cannot be negative\");\n  }\n\n  if (!body.reference) {\n    errors.push(\"Missing required field: reference\");\n  }\n}\n\n\n// --------------------------------------------------\n// INVOICE CREATED\n// --------------------------------------------------\n\nelse if (body.event_type === \"invoice_created\") {\n\n  if (!body.invoice_id) {\n    errors.push(\"Missing required field: invoice_id\");\n  }\n\n  if (!body.client_name) {\n    errors.push(\"Missing required field: client_name\");\n  }\n\n  if (body.amount === undefined || body.amount === null) {\n    errors.push(\"Missing required field: amount\");\n  } else if (\n    typeof body.amount !== \"number\" ||\n    !Number.isFinite(body.amount)\n  ) {\n    errors.push(\"amount must be a valid number\");\n  } else if (body.amount <= 0) {\n    errors.push(\"amount must be greater than zero\");\n  }\n\n  if (body.due_day === undefined || body.due_day === null) {\n    errors.push(\"Missing required field: due_day\");\n  } else if (\n    typeof body.due_day !== \"number\" ||\n    !Number.isInteger(body.due_day)\n  ) {\n    errors.push(\"due_day must be an integer\");\n  } else if (body.due_day < 0) {\n    errors.push(\"due_day cannot be negative\");\n  }\n\n  if (body.status !== undefined && body.status !== null) {\n    const allowedStatuses = [\n      \"Open\",\n      \"Paid\",\n      \"Overdue\",\n      \"Cancelled\"\n    ];\n\n    if (!allowedStatuses.includes(body.status)) {\n      errors.push(\n        `Invalid invoice status: ${body.status}`\n      );\n    }\n  }\n}\n\n\n// --------------------------------------------------\n// UNSUPPORTED EVENT TYPE\n// --------------------------------------------------\n\nelse if (\n  body.event_type &&\n  body.event_type !== \"fuel_price_update\" &&\n  body.event_type !== \"payment_received\" &&\n  body.event_type !== \"invoice_created\"\n) {\n  errors.push(`Unsupported event_type: ${body.event_type}`);\n}\n\n\n// --------------------------------------------------\n// NORMALIZED OUTPUT\n// --------------------------------------------------\n\nreturn {\n  json: {\n    event_type: body.event_type ?? null,\n    company_id: body.company_id ?? null,\n    event_id: body.event_id ?? null,\n\n    // Fuel\n    fuel: body.fuel ?? null,\n    old_price: body.old_price ?? null,\n    new_price: body.new_price ?? null,\n\n    // Payment\n    invoice_id: body.invoice_id ?? null,\n    amount: body.amount ?? null,\n    payment_day: body.payment_day ?? null,\n    reference: body.reference ?? null,\n\n    // Invoice\n    client_name: body.client_name ?? null,\n    due_day: body.due_day ?? null,\n    status: body.status ?? null,\n\n    is_valid: errors.length === 0,\n    validation_errors: errors\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "26b648bb-3242-4cd2-a83a-ad954157528c",
+      "name": "Validate & Normalize Event"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "60321e02-740d-45a4-98da-cfbb9b156353",
+              "leftValue": "={{$json.is_duplicate}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1296,
+        -208
+      ],
+      "id": "3679fc12-fdfd-424b-8d52-5a20f54b18c3",
+      "name": "Is Duplicate?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e65f71fe-b0a3-40e3-8be2-b2ee519c282b",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "18a29b61-6c7c-4044-b2bb-09017b9f42ef",
+              "name": "status",
+              "value": "duplicate",
+              "type": "string"
+            },
+            {
+              "id": "249417b8-a11a-4d58-93b1-b9a0279bf618",
+              "name": "event_id",
+              "value": "={{$json.event_id}}",
+              "type": "string"
+            },
+            {
+              "id": "3c0ed3c6-095e-4074-8845-91495962af9d",
+              "name": "message",
+              "value": "Event already exists. No new record was created.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1408,
+        -400
+      ],
+      "id": "f618fd4e-cfa9-411d-b73e-1663fcf23431",
+      "name": "Duplicate Event Response"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "=fuel_price_events",
+        "returnAll": true,
+        "matchType": "allFilters"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        928,
+        -208
+      ],
+      "id": "a7a303d9-b7d2-4ff1-876b-3f168c4760a8",
+      "name": "Get Existing Fuel Events",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const incomingEvent = $('Validate & Normalize Event').first().json;\n\nconst existingEvents = $input.all();\n\nconst duplicate = existingEvents.some(\n  item => item.json.event_id === incomingEvent.event_id\n);\n\nreturn [\n  {\n    json: {\n      ...incomingEvent,\n      is_duplicate: duplicate\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -208
+      ],
+      "id": "ccfc87d6-b87e-497c-aa06-1e60b300b6bb",
+      "name": "Determine Duplicate"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1680,
+        -400
+      ],
+      "id": "5a145670-2518-4864-9607-f762edc1167d",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "tableId": "fuel_price_events",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "event_id",
+              "fieldValue": "={{$json.event_id}}"
+            },
+            {
+              "fieldId": "event_type",
+              "fieldValue": "={{$json.event_type}}"
+            },
+            {
+              "fieldId": "company_id",
+              "fieldValue": "={{$json.company_id}}"
+            },
+            {
+              "fieldId": "fuel",
+              "fieldValue": "={{$json.fuel}}"
+            },
+            {
+              "fieldId": "old_price",
+              "fieldValue": "={{$json.old_price}}"
+            },
+            {
+              "fieldId": "new_price",
+              "fieldValue": "={{$json.new_price}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        -192
+      ],
+      "id": "d13cfdad-ce84-4e78-b799-81c94838862b",
+      "name": "Store New Event",
+      "alwaysOutputData": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6876f0f3-98da-41d7-af70-68789444d9e4",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "8bc518a9-cf98-447b-8803-1310aa5d6ea5",
+              "name": "status",
+              "value": "stored",
+              "type": "string"
+            },
+            {
+              "id": "5ec6b455-f078-49e5-b0e2-56801e60fed6",
+              "name": "event_id",
+              "value": "={{$json.event_id}}",
+              "type": "string"
+            },
+            {
+              "id": "78600e36-661b-4ee8-93a1-6dc777bca745",
+              "name": "message",
+              "value": "Event successfully stored.",
+              "type": "string"
+            },
+            {
+              "id": "ca4a1471-a89f-4932-8ea6-4f9fe50497c5",
+              "name": "record_id",
+              "value": "={{$json.id}}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1728,
+        -192
+      ],
+      "id": "0bf33796-b398-46bc-b112-2bc97950aa70",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1936,
+        -192
+      ],
+      "id": "b7fb869f-0396-46bc-8172-be4207435c67",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e7b95c93-cb31-4b87-b52f-f280e9eee4f8",
+              "leftValue": "={{$json.is_valid}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        624,
+        0
+      ],
+      "id": "e9cf4682-a15d-4494-b166-1c000fdb5ea5",
+      "name": "Is Valid?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e47b89ad-7e96-40fa-991a-15f3d54a4258",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "32e39764-54b4-464a-a574-6f43b4f9d0aa",
+              "name": "status",
+              "value": "invalid",
+              "type": "string"
+            },
+            {
+              "id": "80e960a8-e9d4-4bfe-b0d8-aa450bb932de",
+              "name": "event_id",
+              "value": "={{$json.event_id}}",
+              "type": "string"
+            },
+            {
+              "id": "8b352767-0ee5-4514-817f-2261cd115618",
+              "name": "message",
+              "value": "Event rejected during validation.",
+              "type": "string"
+            },
+            {
+              "id": "ec559ef3-922f-4336-80f0-9f466fd9aa53",
+              "name": "validation_errors",
+              "value": "={{$json.validation_errors}}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        736,
+        288
+      ],
+      "id": "c63c13bb-eb29-4917-b5cf-e1e3be8c6db5",
+      "name": "Invalid Event Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        848,
+        512
+      ],
+      "id": "5af336f8-575a-4b21-bd59-72eac5c8e690",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "transactions",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        -16
+      ],
+      "id": "466fa2e6-5bef-4dfd-88fe-7849b220f073",
+      "name": "Get Existing Payments",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const incomingPayment =\n  $('Validate & Normalize Event').first().json;\n\nconst existingPayments = $input.all();\n\nconst duplicate = existingPayments.some(\n  item => item.json?.event_id === incomingPayment.event_id\n);\n\nreturn [\n  {\n    json: {\n      ...incomingPayment,\n      is_duplicate: duplicate\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        -16
+      ],
+      "id": "fbc14e2c-14f7-4930-b751-c45755b7e3c5",
+      "name": "Determine Payment Duplicate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "876440ff-7622-4f69-9f5a-84d10ee6ca8f",
+              "leftValue": "={{$json.is_duplicate}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1712,
+        -16
+      ],
+      "id": "1185afdf-acce-478d-8af5-67ed3ef8d3fe",
+      "name": "Is Payment Duplicate?"
+    },
+    {
+      "parameters": {
+        "tableId": "transactions",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "event_id",
+              "fieldValue": "={{$json.event_id}}"
+            },
+            {
+              "fieldId": "company_id",
+              "fieldValue": "={{$json.company_id}}"
+            },
+            {
+              "fieldId": "transaction_type",
+              "fieldValue": "=payment_received"
+            },
+            {
+              "fieldId": "=amount",
+              "fieldValue": "={{$json.amount}}"
+            },
+            {
+              "fieldId": "transaction_day",
+              "fieldValue": "={{$json.payment_day}}"
+            },
+            {
+              "fieldId": "reference",
+              "fieldValue": "={{$json.reference}}"
+            },
+            {
+              "fieldId": "description",
+              "fieldValue": "=Payment received for invoice {{$json.invoice_id}}"
+            },
+            {
+              "fieldId": "=metadata",
+              "fieldValue": "={{ {\n  invoice_id: $json.invoice_id,\n  status: \"received\"\n} }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1824,
+        144
+      ],
+      "id": "10143d9a-7279-4d3b-b6ce-61592d108571",
+      "name": "Store Payment",
+      "alwaysOutputData": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9560dfd0-3869-4ee6-9184-41e1ddb13d95",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "429b03f5-3832-4bb3-ae4a-c263e9c0bf90",
+              "name": "status",
+              "value": "duplicate",
+              "type": "string"
+            },
+            {
+              "id": "c0218a62-60fb-460b-95d9-204498e4f62f",
+              "name": "event_id",
+              "value": "={{ $json.event_id }}",
+              "type": "string"
+            },
+            {
+              "id": "fd592c66-d6b8-48ed-914f-8d258c2f7110",
+              "name": "message",
+              "value": "Payment event already exists. No new transaction was created.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1936,
+        -32
+      ],
+      "id": "a544ff94-2e8f-41e1-bdc4-f17ca8e535b5",
+      "name": "Payment Duplicate Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2144,
+        -32
+      ],
+      "id": "9a27d1cb-0168-43ec-ae4a-a9c97373a79a",
+      "name": "Respond to Webhook3"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.event_type}}",
+                    "rightValue": "fuel_price_update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "74168ef6-c063-418c-b309-d34aba78ea4a"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Fuel Price Update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "27f87f88-dd6a-4360-8a7d-c080d46718e3",
+                    "leftValue": "={{$json.event_type}}",
+                    "rightValue": "payment_received",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Payment Received"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1d73927f-471f-488e-85cd-ac2ab1f77f5a",
+                    "leftValue": "={{$json.event_type}}",
+                    "rightValue": "invoice_created",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Invoice Created"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        816,
+        -32
+      ],
+      "id": "b7d4bed8-ca05-4550-9cc6-844772facdaf",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "receivables",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        928,
+        320
+      ],
+      "id": "fdc69fee-8b10-4267-a7d3-ece565dd2871",
+      "name": "Get Existing Invoices",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const incomingInvoice =\n  $('Validate & Normalize Event').first().json;\n\nconst existingInvoices = $input.all();\n\nconst duplicate = existingInvoices.some(\n  item => item.json?.event_id === incomingInvoice.event_id\n);\n\nreturn [\n  {\n    json: {\n      ...incomingInvoice,\n      is_duplicate: duplicate\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        320
+      ],
+      "id": "d1489059-8276-471d-94c4-ac0f59063780",
+      "name": "Determine Invoice Duplicate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8c524021-1d8c-4072-8d6f-9fe14fb2d7d7",
+              "leftValue": "={{$json.is_duplicate}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        320
+      ],
+      "id": "4fb0ea3d-c73d-4d4e-9c9c-b1fef3e41870",
+      "name": "Is Invoice Duplicate?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6876f0f3-98da-41d7-af70-68789444d9e4",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "8bc518a9-cf98-447b-8803-1310aa5d6ea5",
+              "name": "status",
+              "value": "duplicate",
+              "type": "string"
+            },
+            {
+              "id": "5ec6b455-f078-49e5-b0e2-56801e60fed6",
+              "name": "event_id",
+              "value": "={{$json.event_id}}",
+              "type": "string"
+            },
+            {
+              "id": "fadebc84-94a6-4cb8-a3cd-e3f6c2268c08",
+              "name": "invoice_id",
+              "value": "={{$json.invoice_id}}",
+              "type": "string"
+            },
+            {
+              "id": "78600e36-661b-4ee8-93a1-6dc777bca745",
+              "name": "message",
+              "value": "Invoice event already exists. No new receivable was created.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        304
+      ],
+      "id": "20d15bdd-a4fb-493c-be71-bc8898b2ff97",
+      "name": "Invoice Duplicate Response"
+    },
+    {
+      "parameters": {
+        "tableId": "=receivables",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "=event_id",
+              "fieldValue": "={{$json.event_id}}"
+            },
+            {
+              "fieldId": "=company_id",
+              "fieldValue": "={{$json.company_id}}"
+            },
+            {
+              "fieldId": "=invoice_id",
+              "fieldValue": "={{$json.invoice_id}}"
+            },
+            {
+              "fieldId": "=client_name",
+              "fieldValue": "={{$json.client_name}}"
+            },
+            {
+              "fieldId": "=amount",
+              "fieldValue": "={{ $json.amount }}"
+            },
+            {
+              "fieldId": "=due_day",
+              "fieldValue": "={{$json.due_day}}"
+            },
+            {
+              "fieldId": "=status",
+              "fieldValue": "={{$json.status || \"Open\"}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        448
+      ],
+      "id": "67d436da-6f62-4f64-bedc-0f9b6591605a",
+      "name": "Store Invoice",
+      "alwaysOutputData": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6876f0f3-98da-41d7-af70-68789444d9e4",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "8bc518a9-cf98-447b-8803-1310aa5d6ea5",
+              "name": "status",
+              "value": "stored",
+              "type": "string"
+            },
+            {
+              "id": "5ec6b455-f078-49e5-b0e2-56801e60fed6",
+              "name": "event_id",
+              "value": "={{$json.event_id}}",
+              "type": "string"
+            },
+            {
+              "id": "fadebc84-94a6-4cb8-a3cd-e3f6c2268c08",
+              "name": "invoice_id",
+              "value": "={{$json.invoice_id}}",
+              "type": "string"
+            },
+            {
+              "id": "78600e36-661b-4ee8-93a1-6dc777bca745",
+              "name": "message",
+              "value": "Invoice successfully stored.",
+              "type": "string"
+            },
+            {
+              "id": "ca4a1471-a89f-4932-8ea6-4f9fe50497c5",
+              "name": "record_id",
+              "value": "={{$json.id}}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1664,
+        448
+      ],
+      "id": "7c65bb91-0a81-40e6-ad7d-6ffdd203ca36",
+      "name": "Invoice Stored Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1872,
+        448
+      ],
+      "id": "dff62893-8ee4-4194-a4f2-2811625990f7",
+      "name": "Respond to Webhook4"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2208,
+        144
+      ],
+      "id": "ebc5fb17-ce56-4a24-9a9d-59d4890a33a5",
+      "name": "Respond to Webhook5"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1856,
+        304
+      ],
+      "id": "99d967cb-06d2-445b-b650-3feea0ddd096",
+      "name": "Respond to Webhook6"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6876f0f3-98da-41d7-af70-68789444d9e4",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "8bc518a9-cf98-447b-8803-1310aa5d6ea5",
+              "name": "status",
+              "value": "stored",
+              "type": "string"
+            },
+            {
+              "id": "5ec6b455-f078-49e5-b0e2-56801e60fed6",
+              "name": "event_id",
+              "value": "={{$json.event_id}}",
+              "type": "string"
+            },
+            {
+              "id": "fadebc84-94a6-4cb8-a3cd-e3f6c2268c08",
+              "name": "record_id",
+              "value": "={{$json.id}}",
+              "type": "string"
+            },
+            {
+              "id": "78600e36-661b-4ee8-93a1-6dc777bca745",
+              "name": "message",
+              "value": "payment successfully stored.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2000,
+        144
+      ],
+      "id": "e0e256a4-f0fc-448a-b4a6-1928de4607bf",
+      "name": "Payment Stored Response1"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "76e33f8a-3cae-4513-ad1a-7843da3973a0",
+      "name": "When Executed by Another Workflow"
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "run_id": "W2-SUB-T1",
+          "needs_ingestion": true,
+          "event": {
+            "event_type": "fuel_price_update",
+            "company_id": "BP-001",
+            "event_id": "TEST-FP-010",
+            "fuel": "diesel",
+            "old_price": 1750,
+            "new_price": 2000
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate & Normalize Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Normalize Event": {
+      "main": [
+        [
+          {
+            "node": "Is Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Event Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store New Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Fuel Events": {
+      "main": [
+        [
+          {
+            "node": "Determine Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Is Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate Event Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store New Event": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid?": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Event Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalid Event Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Payments": {
+      "main": [
+        [
+          {
+            "node": "Determine Payment Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Payment Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Is Payment Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Payment Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Payment Duplicate Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payment Duplicate Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Fuel Events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Existing Payments",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Existing Invoices",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get Existing Invoices": {
+      "main": [
+        [
+          {
+            "node": "Determine Invoice Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Invoice Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Is Invoice Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Invoice Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Invoice Duplicate Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Invoice": {
+      "main": [
+        [
+          {
+            "node": "Invoice Stored Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoice Stored Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Payment": {
+      "main": [
+        [
+          {
+            "node": "Payment Stored Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoice Duplicate Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payment Stored Response1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Validate & Normalize Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "65f11ed7-7557-4fe3-9e43-6dc86cc41aec",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7cc6ab146e7286db115c5308299848109c07d40b25093c59a6def55feac27966"
+  },
+  "nodeGroups": [],
+  "id": "kEvYjqwnFrzi1B5A",
+  "tags": []
+}

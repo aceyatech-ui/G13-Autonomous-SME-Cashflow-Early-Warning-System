@@ -1,0 +1,987 @@
+{
+  "name": "W01 - Main Controller (BrightPath)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "7f8f2fee-b207-4b75-b3a3-99030c65bca9",
+      "name": "Daily Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "brightpath-event",
+        "options": {}
+      },
+      "id": "caa8bd0d-34e0-460c-9c36-5a34cd72fa46",
+      "name": "Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        544
+      ],
+      "webhookId": "262ebbf4-0e63-47a3-ab41-11e3bde870e5"
+    },
+    {
+      "parameters": {
+        "jsCode": "// W01 - Create Run Context (works for the daily schedule and the event webhook)\nconst j = $json;\nconst isWebhook = j.body !== undefined || j.headers !== undefined;\nconst body = isWebhook ? (j.body || {}) : {};\n\nconst now = new Date();\nconst pad = (n) => String(n).padStart(2, '0');\nconst stamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}-${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`;\nconst rand = Math.random().toString(36).slice(2, 6).toUpperCase();\nconst day = body.day ?? body.event_day;\n\nreturn [{\n  json: {\n    run_id: `RUN-${stamp}-${rand}`,\n    started_at: now.toISOString(),\n    trigger_type: isWebhook ? 'WEBHOOK' : 'SCHEDULE',\n    company_id: body.company_id || 'BP-001',\n    horizon_days: Number(body.horizon_days) || 30,\n    current_day: (day === undefined || day === null || day === '') ? null : Number(day),\n    event_type: isWebhook ? (body.event_type || null) : null,\n    event: isWebhook ? body : null,\n    needs_ingestion: isWebhook\n  }\n}];"
+      },
+      "id": "154ffeb2-c8af-44e6-bd5a-168e6977257d",
+      "name": "Create Run Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c6b2ebe7-dd20-4e95-9415-b2c64dbe8841",
+              "leftValue": "={{ $json.needs_ingestion }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9b2465f7-1203-4245-9894-e9fc36d2540c",
+      "name": "Needs Ingestion?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        528,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "kEvYjqwnFrzi1B5A",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/kEvYjqwnFrzi1B5A",
+          "cachedResultName": "W02 — Financial Ingestion"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "28128802-c5b5-41ad-810a-a7faa4cec7e6",
+      "name": "Call W02 Financial Ingestion",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        640,
+        160
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// W01 - Merge W02 result into the run context\nconst res = $json;\nconst ctx = $('Create Run Context').first().json;\nconst status = String(res.status || res.ingestion_status || 'unknown').toLowerCase();\n\nreturn [{\n  json: {\n    ...ctx,\n    ingestion: {\n      status: status,\n      record_id: res.record_id || null,\n      message: res.message || null\n    },\n    continue_run: ['created', 'stored'].includes(status)\n  }\n}];"
+      },
+      "id": "b1233da2-387a-4105-88f5-9af5c5d3acd7",
+      "name": "Merge W02 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "711cc2d8-b042-461e-90ba-6adcc1c19269",
+              "leftValue": "={{ $json.continue_run }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "20d5a811-01a2-441e-b3b1-da66f88ffc87",
+      "name": "Continue Run?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        992,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ELdMlt0BsRtAQwZG",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/ELdMlt0BsRtAQwZG",
+          "cachedResultName": "W03 - Forecast Engine"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "fad8467e-bfbd-4158-8d22-66c9949c1338",
+      "name": "Call W03 Forecast Engine",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        848,
+        448
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function latest(names) {\n  for (const n of names) {\n    try {\n      const items = $(n).all();\n      if (items && items.length) return items[0].json;\n    } catch (e) {}\n  }\n  return null;\n}\n\n// W01 - Merge W03 result into the run context\nconst res = $json;\nconst ctx = latest(['Merge W02 Result']) || $('Create Run Context').first().json;\n\nconst required = ['current_cash', 'minimum_projected_balance', 'day_of_minimum', 'safety_buffer'];\nconst missing = required.filter((k) => res[k] === undefined || res[k] === null);\nif (missing.length) {\n  throw new Error('W03 returned an incomplete forecast. Missing: ' + missing.join(', '));\n}\n\nreturn [{\n  json: {\n    ...ctx,\n    current_cash: res.current_cash,\n    minimum_projected_balance: res.minimum_projected_balance,\n    day_of_minimum: res.day_of_minimum,\n    days_to_breach: res.days_to_breach ?? null,\n    fuel_price: res.fuel_price ?? res.fuel_price_used ?? null,\n    open_invoices: res.open_invoices ?? [],\n    forecast: {\n      forecast_run_id: res.forecast_run_id ?? null,\n      current_cash: res.current_cash,\n      expected_inflows: res.expected_inflows ?? null,\n      expected_outflows: res.expected_outflows ?? null,\n      minimum_projected_balance: res.minimum_projected_balance,\n      day_of_minimum: res.day_of_minimum,\n      days_to_breach: res.days_to_breach ?? null,\n      safety_buffer: res.safety_buffer,\n      fuel_price_used: res.fuel_price_used ?? res.fuel_price ?? null\n    }\n  }\n}];"
+      },
+      "id": "44a22af6-f757-4612-97ab-c0254163a6a7",
+      "name": "Merge W03 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "CiBLCaBonuXugxCg",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/CiBLCaBonuXugxCg",
+          "cachedResultName": "W04-Risk Engine"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "89741a0b-4975-4886-ab60-497ba0f98836",
+      "name": "Call W04 Risk Engine",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1552,
+        432
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function latest(names) {\n  for (const n of names) {\n    try {\n      const items = $(n).all();\n      if (items && items.length) return items[0].json;\n    } catch (e) {}\n  }\n  return null;\n}\n\n// W01 - Merge W04 result into the run context\nconst res = $json;\nconst ctx = latest(['Merge W03 Result']);\nif (!ctx) throw new Error('Run context not found before W04 merge');\n\nconst messageTypes = { HEALTHY: 'DAILY_SUMMARY', WATCH: 'WATCH', AT_RISK: 'AT_RISK', CRITICAL: 'CRITICAL' };\n\nreturn [{\n  json: {\n    ...ctx,\n    risk_state: res.risk_state ?? null,\n    previous_state: res.previous_state ?? null,\n    state_changed: Boolean(res.state_changed),\n    reason: res.reason ?? null,\n    risk: {\n      risk_state: res.risk_state ?? null,\n      previous_state: res.previous_state ?? null,\n      state_changed: Boolean(res.state_changed),\n      reason: res.reason ?? null\n    },\n    message_type: messageTypes[res.risk_state] || null\n  }\n}];"
+      },
+      "id": "effce360-5946-4375-9c00-6a004621fd51",
+      "name": "Merge W04 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b31207f3-bb85-4405-bd83-c15523a2bff7",
+                    "leftValue": "={{ $json.risk.risk_state }}",
+                    "rightValue": "HEALTHY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HEALTHY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "31e4d7d8-e98b-4068-a67a-f1ab119842c5",
+                    "leftValue": "={{ $json.risk.risk_state }}",
+                    "rightValue": "WATCH",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "WATCH"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f372e50d-1f21-406d-aad8-7cefc2230251",
+                    "leftValue": "={{ $json.risk.risk_state }}",
+                    "rightValue": "AT_RISK",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "AT_RISK"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e944e5e2-8e83-44ef-8f3f-4ed36590d874",
+                    "leftValue": "={{ $json.risk.risk_state }}",
+                    "rightValue": "CRITICAL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CRITICAL"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "d3cb3ff4-701f-4666-a369-5488379ef87e",
+      "name": "Route by Risk State",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2176,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "JzZV8aCmrWlToVK7",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/JzZV8aCmrWlToVK7",
+          "cachedResultName": "W08 - Reliability and Audit"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "ed051364-4953-45d9-b10a-a9e481e7a8ae",
+      "name": "Call W05 AI Analysis (via W08)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2544,
+        448
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function latest(names) {\n  for (const n of names) {\n    try {\n      const items = $(n).all();\n      if (items && items.length) return items[0].json;\n    } catch (e) {}\n  }\n  return null;\n}\n\n// W01 - Merge AI result (from W08, which calls W05 with retries and a fallback)\nconst res = $json;\nconst ctx = latest(['Merge W04 Result']);\nif (!ctx) throw new Error('Run context not found before AI merge');\n\nreturn [{\n  json: {\n    ...ctx,\n    summary: res.summary ?? null,\n    cause: res.cause ?? null,\n    actions: res.actions ?? [],\n    urgency: res.urgency ?? null,\n    ai_source: res.ai_source ?? 'gemini',\n    ai: {\n      summary: res.summary ?? null,\n      cause: res.cause ?? null,\n      actions: res.actions ?? [],\n      urgency: res.urgency ?? null,\n      source: res.ai_source || 'AI'\n    }\n  }\n}];"
+      },
+      "id": "29fae798-ba59-4100-818e-5ce989c1f745",
+      "name": "Merge W05 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "42b71126-dea6-4d2d-a962-1e1a4cbf5a30",
+              "leftValue": "={{ $json.risk.risk_state }}",
+              "rightValue": "CRITICAL",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "11e1bc09-9b90-4d4f-9174-e7b7b1e4302c",
+      "name": "Is CRITICAL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2880,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ukQQfFp993EnFCIq",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/ukQQfFp993EnFCIq",
+          "cachedResultName": "W06 - Human Approval"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "fd52834b-e2b7-40f1-a905-b578be88ab94",
+      "name": "Call W06 Human Approval",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3200,
+        640
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function latest(names) {\n  for (const n of names) {\n    try {\n      const items = $(n).all();\n      if (items && items.length) return items[0].json;\n    } catch (e) {}\n  }\n  return null;\n}\n\n// W01 - Merge W06 result into the run context\nconst res = $json;\nconst ctx = latest(['Merge W05 Result']);\nif (!ctx) throw new Error('Run context not found before W06 merge');\n\nreturn [{\n  json: {\n    ...ctx,\n    approval: {\n      decision: res.decision ?? null,\n      decided_by: res.decided_by ?? null,\n      decided_at: res.decided_at || res.timestamp || null\n    }\n  }\n}];"
+      },
+      "id": "f4171bb7-8326-498b-bf9b-c008638e8969",
+      "name": "Merge W06 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3280,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "flnexQPlcYfG33Ox",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/flnexQPlcYfG33Ox",
+          "cachedResultName": "W07 - Notifications."
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "f1fbe731-3d9b-43e1-8688-0abeecd1baff",
+      "name": "Call W07 Notifications",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3696,
+        624
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function latest(names) {\n  for (const n of names) {\n    try {\n      const items = $(n).all();\n      if (items && items.length) return items[0].json;\n    } catch (e) {}\n  }\n  return null;\n}\n\n// W01 - Merge W07 result into the run context\nconst res = $json;\nconst ctx = latest(['Merge W06 Result', 'Merge W05 Result', 'Merge W04 Result']);\nif (!ctx) throw new Error('Run context not found before W07 merge');\n\nreturn [{\n  json: {\n    ...ctx,\n    notification: {\n      sent: res.sent ?? null,\n      message_id: res.message_id ?? null\n    }\n  }\n}];"
+      },
+      "id": "a56b896f-2924-4de0-a918-d05d742ed740",
+      "name": "Merge W07 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4064,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// W01 - Build the final run summary (input is the run context from any path)\nconst ctx = $json;\nconst validStates = ['HEALTHY', 'WATCH', 'AT_RISK', 'CRITICAL'];\n\nlet runStatus = 'COMPLETED';\nlet auditEvent = 'RUN_COMPLETED';\n\nif (ctx.ingestion && ctx.continue_run === false) {\n  runStatus = ctx.ingestion.status === 'duplicate' ? 'SKIPPED_DUPLICATE_EVENT' : 'REJECTED_INVALID_EVENT';\n  auditEvent = 'RUN_ENDED_EARLY';\n} else if (!ctx.risk || !validStates.includes(ctx.risk.risk_state)) {\n  runStatus = 'FAILED_UNKNOWN_RISK_STATE';\n  auditEvent = 'RUN_FAILED';\n}\n\nconst finished = new Date();\nconst started = new Date(ctx.started_at);\nconst stages = [];\nif (ctx.ingestion) stages.push('W02');\nif (ctx.forecast) stages.push('W03');\nif (ctx.risk) stages.push('W04');\nif (ctx.ai) stages.push('W05');\nif (ctx.approval) stages.push('W06');\nif (ctx.notification) stages.push('W07');\n\nconst summary = {\n  run_id: ctx.run_id,\n  company_id: ctx.company_id,\n  trigger_type: ctx.trigger_type,\n  event_type: ctx.event_type,\n  started_at: ctx.started_at,\n  finished_at: finished.toISOString(),\n  duration_seconds: Math.round((finished - started) / 1000),\n  run_status: runStatus,\n  risk_state: ctx.risk ? ctx.risk.risk_state : null,\n  state_changed: ctx.risk ? ctx.risk.state_changed : null,\n  minimum_projected_balance: ctx.forecast ? ctx.forecast.minimum_projected_balance : null,\n  day_of_minimum: ctx.forecast ? ctx.forecast.day_of_minimum : null,\n  days_to_breach: ctx.forecast ? ctx.forecast.days_to_breach : null,\n  approval_decision: ctx.approval ? ctx.approval.decision : null,\n  notification_sent: ctx.notification ? ctx.notification.sent : null,\n  stages_run: stages\n};\n\nreturn [{\n  json: {\n    ...ctx,\n    run_summary: summary,\n    component: 'W01',\n    audit_event: auditEvent\n  }\n}];"
+      },
+      "id": "70c59051-2c23-4b2f-8b72-579e4bbc0d54",
+      "name": "Build Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4768,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "JzZV8aCmrWlToVK7",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/JzZV8aCmrWlToVK7",
+          "cachedResultName": "W08 - Reliability and Audit"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "c5572993-0243-417e-824d-d40f097b5141",
+      "name": "Call W08 Reliability and Audit",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        5024,
+        528
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function latest(names) {\n  for (const n of names) {\n    try {\n      const items = $(n).all();\n      if (items && items.length) return items[0].json;\n    } catch (e) {}\n  }\n  return null;\n}\n\n// W01 - Build a failure record when any sub-workflow call fails\nconst j = $json;\nlet stage = 'UNKNOWN';\ntry { stage = $prevNode.name; } catch (e) {}\n\nconst ctx = latest([\n  'Merge W06 Result', 'Merge W05 Result', 'Merge W04 Result',\n  'Merge W03 Result', 'Merge W02 Result'\n]) || $('Create Run Context').first().json;\n\nconst err = j.error || {};\nconst message = err.message || (typeof err === 'string' ? err : 'Unknown error');\n\nreturn [{\n  json: {\n    ...ctx,\n    failure: {\n      failed_stage: stage,\n      message: message,\n      failed_at: new Date().toISOString()\n    },\n    component: 'W01',\n    audit_event: 'STAGE_FAILED',\n    severity: 'ERROR'\n  }\n}];"
+      },
+      "id": "3556d3e8-516d-4442-893d-38e20bd83b54",
+      "name": "Build Failure Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        992
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "JzZV8aCmrWlToVK7",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/JzZV8aCmrWlToVK7",
+          "cachedResultName": "W08 - Reliability and Audit"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "36be74f8-0521-4a94-a871-aa2e54764769",
+      "name": "Call W08 Failure Handler",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1840,
+        992
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "Retry is ON for W02, W03, W04 and the AI call (safe to repeat).\nRetry is OFF for W06 and W07 so an approval request or email is never sent twice.",
+        "height": 120,
+        "width": 420,
+        "color": 3
+      },
+      "id": "d1ea70fe-9d15-4edc-8dba-80917e50c928",
+      "name": "Retry Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2912,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## W01 MAIN CONTROLLER (BrightPath)\n**Before running:** open every blue 'Call' node and paste the real workflow ID (By ID). The AI node and both audit nodes all call W08.\n\n**Triggers:** daily 07:00 schedule, and POST webhook /brightpath-event.\n\n**Order:** W02 (webhook events only) > W03 > W04 > W08 (AI with retry and fallback; AT_RISK and CRITICAL) > W06 (CRITICAL) > W07 > W08 (audit).\n\n**Errors:** every Call node has an error output that goes to W08 (audit mode).",
+        "height": 300,
+        "width": 520,
+        "color": 4
+      },
+      "id": "7a10d595-f503-4885-a7f9-48c8c6806a9d",
+      "name": "Setup Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create Run Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Event Webhook": {
+      "main": [
+        [
+          {
+            "node": "Create Run Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Run Context": {
+      "main": [
+        [
+          {
+            "node": "Needs Ingestion?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Ingestion?": {
+      "main": [
+        [
+          {
+            "node": "Call W02 Financial Ingestion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call W03 Forecast Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call W02 Financial Ingestion": {
+      "main": [
+        [
+          {
+            "node": "Merge W02 Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Failure Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge W02 Result": {
+      "main": [
+        [
+          {
+            "node": "Continue Run?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue Run?": {
+      "main": [
+        [
+          {
+            "node": "Call W03 Forecast Engine",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call W03 Forecast Engine": {
+      "main": [
+        [
+          {
+            "node": "Merge W03 Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Failure Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge W03 Result": {
+      "main": [
+        [
+          {
+            "node": "Call W04 Risk Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call W04 Risk Engine": {
+      "main": [
+        [
+          {
+            "node": "Merge W04 Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Failure Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge W04 Result": {
+      "main": [
+        [
+          {
+            "node": "Route by Risk State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Risk State": {
+      "main": [
+        [
+          {
+            "node": "Call W07 Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call W07 Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call W05 AI Analysis (via W08)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call W05 AI Analysis (via W08)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call W05 AI Analysis (via W08)": {
+      "main": [
+        [
+          {
+            "node": "Merge W05 Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Failure Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge W05 Result": {
+      "main": [
+        [
+          {
+            "node": "Is CRITICAL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is CRITICAL?": {
+      "main": [
+        [
+          {
+            "node": "Call W06 Human Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call W07 Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call W06 Human Approval": {
+      "main": [
+        [
+          {
+            "node": "Merge W06 Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Failure Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge W06 Result": {
+      "main": [
+        [
+          {
+            "node": "Call W07 Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call W07 Notifications": {
+      "main": [
+        [
+          {
+            "node": "Merge W07 Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Failure Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge W07 Result": {
+      "main": [
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Call W08 Reliability and Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Failure Record": {
+      "main": [
+        [
+          {
+            "node": "Call W08 Failure Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "0b5ede85-6d4c-49b3-8360-e17bef6b018c",
+  "meta": {
+    "instanceId": "7cc6ab146e7286db115c5308299848109c07d40b25093c59a6def55feac27966"
+  },
+  "nodeGroups": [],
+  "id": "eyexyKrLDamdpzGY",
+  "tags": []
+}

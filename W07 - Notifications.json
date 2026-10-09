@@ -1,0 +1,143 @@
+{
+  "name": "W07 - Notifications.",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const d = $('When Executed by Another Workflow').first().json;\nconst FOUNDER_EMAIL = 'nexcraftcreativestudio@gmail.com';\nconst m = n => 'N' + (Number(n) / 1e6).toFixed(2) + 'm';\nconst type = d.message_type || d.risk_state || 'DAILY_SUMMARY';\n\nconst subjects = {\n  WATCH: 'WATCH: BrightPath cash is trending toward the safety buffer',\n  AT_RISK: 'URGENT: BrightPath cash is AT RISK',\n  CRITICAL: 'CRITICAL: BrightPath cash alert',\n  DAILY_SUMMARY: 'BrightPath daily cashflow summary'\n};\nconst subject = subjects[type] || subjects.DAILY_SUMMARY;\n\nconst fallbackNote = d.ai_source === 'fallback'\n  ? '<p><b>Automated summary: the AI service was unavailable, so this alert was built from the forecast figures.</b></p>' : '';\nconst actions = Array.isArray(d.actions) && d.actions.length\n  ? '<p><b>Recommended actions</b></p><ol>' + d.actions.map(a => `<li>${a}</li>`).join('') + '</ol>' : '';\n\nconst html = `\n<h2>${subject}</h2>\n${fallbackNote}\n<p><b>Status:</b> ${d.risk_state || type}${d.urgency ? ' (urgency: ' + d.urgency + ')' : ''}</p>\n<ul>\n  <li>Current cash: ${d.current_cash != null ? m(d.current_cash) : 'n/a'}</li>\n  <li>Lowest projected balance: ${m(d.minimum_projected_balance)} on Day ${d.day_of_minimum}</li>\n  <li>Safety buffer: N4.00m</li>\n  <li>Days to breach: ${d.days_to_breach ?? 'none'}</li>\n</ul>\n${d.summary ? '<p><b>Summary:</b> ' + d.summary + '</p>' : ''}\n${d.cause ? '<p><b>Cause:</b> ' + d.cause + '</p>' : ''}\n${actions}\n<p style=\"color:#888\">BrightPath Early Warning System | Run ${d.run_id || ''}</p>`;\n\nreturn [{ json: { to: d.to || FOUNDER_EMAIL, subject, html, message_type: type } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "8d73dfc1-7756-45c4-b3be-1ee8afb1a41a",
+      "name": "Build Email"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "2fdf4046-42b4-413f-9554-de036d657639",
+      "name": "Send Gmail",
+      "webhookId": "40f72876-c77c-4d1a-94b3-17a4c01f5fa9",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "uAlUkoum7UoRs1iX",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sent = $input.first().json;\nconst built = $('Build Email').first().json;\nreturn [{ json: { sent: true, message_id: sent.id, message_type: built.message_type } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "b83044e0-00db-4ddc-8490-2b1334801457",
+      "name": "Return Result"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "50ae886d-5829-457e-a964-5037062e89a2",
+      "name": "When Executed by Another Workflow"
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "message_type": "CRITICAL",
+          "company_id": "BP-001",
+          "run_id": "W7-T1",
+          "risk_state": "CRITICAL",
+          "urgency": "CRITICAL",
+          "current_cash": 16000000,
+          "minimum_projected_balance": 970000,
+          "day_of_minimum": 14,
+          "days_to_breach": 9,
+          "summary": "Cash is projected to fall to N0.97m on Day 14.",
+          "cause": "Diesel rose 60% to N2,000 per litre.",
+          "actions": [
+            "Ask Coastal Beverages to pay INV-1041 early.",
+            "Ask Harbour Fuels to split the Day 14 payment.",
+            "Apply a temporary fuel surcharge."
+          ],
+          "ai_source": "fallback"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Build Email": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Build Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "ca62d22b-f581-416f-9808-20034af1902c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7cc6ab146e7286db115c5308299848109c07d40b25093c59a6def55feac27966"
+  },
+  "nodeGroups": [],
+  "id": "flnexQPlcYfG33Ox",
+  "tags": []
+}

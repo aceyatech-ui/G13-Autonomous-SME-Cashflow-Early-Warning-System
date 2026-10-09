@@ -1,0 +1,203 @@
+{
+  "name": "W04-Risk Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const f = $('When Executed by Another Workflow').first().json;\nconst rows = $('Get Previous State').all()\n  .map(i => i.json).filter(r => r.id);\nrows.sort((a, b) => b.id - a.id);\nconst previous = rows.length ? rows[0].risk_state : 'HEALTHY';\n\nconst min = Number(f.minimum_projected_balance);\nlet state = 'HEALTHY';\nif (min < 1000000) state = 'CRITICAL';\nelse if (min < 3000000) state = 'AT_RISK';\nelse if (min < 5000000) state = 'WATCH';\n\nconst reason = `Lowest projected balance N${(min/1e6).toFixed(2)}m on Day ${f.day_of_minimum} (${state}).`;\n\nreturn [{ json: {\n  ...f,\n  risk_state: state,\n  previous_state: previous,\n  state_changed: state !== previous,\n  reason\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "c33b2133-969a-413b-924c-44dc5d8f7382",
+      "name": "Apply Risk Rules"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "risk_alerts",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "company_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.company_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ],
+      "id": "f08baefc-5137-4d14-bf0e-fef53b42a139",
+      "name": "Get Previous State",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "risk_alerts",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "run_id",
+              "fieldValue": "={{ $json.run_id }}"
+            },
+            {
+              "fieldId": "company_id",
+              "fieldValue": "={{ $json.company_id }}"
+            },
+            {
+              "fieldId": "risk_state",
+              "fieldValue": "={{ $json.risk_state }}"
+            },
+            {
+              "fieldId": "previous_state",
+              "fieldValue": "={{ $json.previous_state }}"
+            },
+            {
+              "fieldId": "state_changed",
+              "fieldValue": "={{ $json.state_changed }}"
+            },
+            {
+              "fieldId": "reason",
+              "fieldValue": "={{ $json.reason }}"
+            },
+            {
+              "fieldId": "minimum_projected_balance",
+              "fieldValue": "={{ $json.minimum_projected_balance }}"
+            },
+            {
+              "fieldId": "days_to_breach",
+              "fieldValue": "={{ $json.days_to_breach }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        656,
+        0
+      ],
+      "id": "f05daea6-c253-4068-817d-50aa718ec664",
+      "name": "Save Alert",
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Apply Risk Rules').first().json }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "13c0a311-8146-4d95-b09b-c8d5e96a0c7b",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        0
+      ],
+      "id": "092e48d4-bb7b-4289-9f83-1ca8ed4114d1",
+      "name": "When Executed by Another Workflow"
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "company_id": "BP-001",
+          "run_id": "T4",
+          "minimum_projected_balance": 970000,
+          "day_of_minimum": 14,
+          "days_to_breach": 9
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Get Previous State": {
+      "main": [
+        [
+          {
+            "node": "Apply Risk Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Risk Rules": {
+      "main": [
+        [
+          {
+            "node": "Save Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Alert": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get Previous State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "46c72f24-256b-4727-b1c0-ab3ac88d9aec",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7cc6ab146e7286db115c5308299848109c07d40b25093c59a6def55feac27966"
+  },
+  "nodeGroups": [],
+  "id": "CiBLCaBonuXugxCg",
+  "tags": []
+}

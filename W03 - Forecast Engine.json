@@ -1,0 +1,368 @@
+{
+  "name": "W03 - Forecast Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "b7a09ea1-1966-4e99-aac6-704bce9ac5e8",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        192,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "cash_positions",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "company_id",
+              "condition": "eq",
+              "keyValue": "={{ $('When Executed by Another Workflow').first().json.company_id }}"
+            }
+          ]
+        }
+      },
+      "id": "d1b4c860-5b89-45e3-9561-2573f960d74d",
+      "name": "Get Cash Position",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        464,
+        192
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "receivables",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "company_id",
+              "condition": "eq",
+              "keyValue": "={{ $('When Executed by Another Workflow').first().json.company_id }}"
+            }
+          ]
+        }
+      },
+      "id": "da523845-569c-4f13-b90f-ffc4b1c08057",
+      "name": "Get Receivables",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        720,
+        192
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "payables",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "company_id",
+              "condition": "eq",
+              "keyValue": "={{ $('When Executed by Another Workflow').first().json.company_id }}"
+            }
+          ]
+        }
+      },
+      "id": "5e53e27f-aeef-4a78-b60d-fcd4839da606",
+      "name": "Get Payables",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        976,
+        192
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "commitments",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "company_id",
+              "condition": "eq",
+              "keyValue": "={{ $('When Executed by Another Workflow').first().json.company_id }}"
+            }
+          ]
+        }
+      },
+      "id": "d491fa4b-a76d-4be8-a6a9-ed84af69a0cd",
+      "name": "Get Commitments",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        192
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "fuel_price_events",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "company_id",
+              "condition": "eq",
+              "keyValue": "={{ $('When Executed by Another Workflow').first().json.company_id }}"
+            }
+          ]
+        }
+      },
+      "id": "b74f09c8-eba3-4860-9d51-4a93f19bd02d",
+      "name": "Get Latest Fuel Price",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        192
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('When Executed by Another Workflow').first().json;\nconst rows = (name) => $(name).all().map(i => i.json).filter(r => r && r.id !== undefined && r.id !== null);\n\nconst horizon = Number(ctx.horizon_days) || 30;\nconst SAFETY_BUFFER = 4000000;\nconst NORMAL_PRICE = 1250;\n\n// 1. Opening cash (Day 0 row, else the lowest forecast_day, newest first)\nconst cash = rows('Get Cash Position');\nif (!cash.length) throw new Error('No cash position found for ' + ctx.company_id);\ncash.sort((a, b) => Number(a.forecast_day) - Number(b.forecast_day) || Number(b.id) - Number(a.id));\nconst startingCash = Number(cash[0].balance);\n\n// 2. Latest diesel price (newest fuel_price_events row, else the normal price)\nconst fuelRows = rows('Get Latest Fuel Price').sort((a, b) => Number(b.id) - Number(a.id));\nconst latestFuel = fuelRows[0] || null;\nconst fuelPrice = latestFuel ? Number(latestFuel.new_price) : NORMAL_PRICE;\nconst currentDay = Number(ctx.current_day ?? (latestFuel ? latestFuel.event_day : 0) ?? 0) || 0;\n\n// 3. Money in and money out\nconst isOpen = (s) => String(s || '').toLowerCase() === 'open';\nconst isSettled = (s) => ['paid', 'cancelled', 'canceled', 'closed', 'settled'].includes(String(s || '').toLowerCase());\n\nconst receivables = rows('Get Receivables').filter((r) => isOpen(r.status));\nconst bills = [\n  ...rows('Get Payables').filter((r) => !isSettled(r.status)).map((r) => ({ ...r, kind: 'payable' })),\n  ...rows('Get Commitments').filter((r) => !isSettled(r.status)).map((r) => ({ ...r, kind: 'commitment' }))\n];\nconst isDiesel = (b) => b.kind === 'payable' &&\n  (/diesel|fuel/i.test(String(b.item_name)) || (b.amount === null && b.quantity !== null));\nconst billAmount = (b) => isDiesel(b) ? Number(b.quantity ?? 2880) * fuelPrice : Number(b.amount);\n\n// 4. Loop through every day of the horizon\nlet balance = startingCash;\nlet minimumProjectedBalance = startingCash;\nlet dayOfMinimum = 0;\nlet breachDay = null;\nlet expectedInflows = 0;\nlet expectedOutflows = 0;\nconst dailyForecast = [];\n\nfor (let day = 0; day <= horizon; day++) {\n  let inflows = 0;\n  let outflows = 0;\n  const events = [];\n\n  for (const inv of receivables) {\n    if (Number(inv.due_day) === day) {\n      inflows += Number(inv.amount);\n      events.push({ type: 'INFLOW', name: inv.invoice_id, client: inv.client_name, amount: Number(inv.amount) });\n    }\n  }\n  for (const b of bills) {\n    if (Number(b.due_day) === day) {\n      const amt = billAmount(b);\n      outflows += amt;\n      events.push({ type: 'OUTFLOW', name: b.item_name, amount: amt });\n    }\n  }\n\n  balance = balance + inflows - outflows;\n  expectedInflows += inflows;\n  expectedOutflows += outflows;\n\n  if (balance < minimumProjectedBalance) {\n    minimumProjectedBalance = balance;\n    dayOfMinimum = day;\n  }\n  if (day > 0 && breachDay === null && balance < SAFETY_BUFFER) {\n    breachDay = day;\n  }\n  dailyForecast.push({ day, inflows, outflows, balance, events });\n}\n\nconst runId = ctx.run_id || ('W03-' + Date.now());\n\nreturn [{\n  json: {\n    forecast_run_id: 'FC-' + runId,\n    run_id: runId,\n    company_id: ctx.company_id,\n    horizon_days: horizon,\n    current_cash: startingCash,\n    expected_inflows: expectedInflows,\n    expected_outflows: expectedOutflows,\n    minimum_projected_balance: minimumProjectedBalance,\n    day_of_minimum: dayOfMinimum,\n    breach_day: breachDay,\n    days_to_breach: breachDay === null ? null : Math.max(0, breachDay - currentDay),\n    safety_buffer: SAFETY_BUFFER,\n    fuel_price: fuelPrice,\n    fuel_price_used: fuelPrice,\n    open_invoices: receivables.map((r) => ({\n      invoice_id: r.invoice_id, client_name: r.client_name, amount: Number(r.amount), due_day: Number(r.due_day)\n    })),\n    daily_forecast: dailyForecast\n  }\n}];\n"
+      },
+      "id": "f3d96b3f-83c1-460f-b54a-d343feb261e1",
+      "name": "Build Forecast",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const f = $('Build Forecast').first().json;\nreturn [{ json: {\n  forecast_run_id: f.forecast_run_id,\n  run_id: f.run_id,\n  company_id: f.company_id,\n  horizon_days: f.horizon_days,\n  current_cash: f.current_cash,\n  expected_inflows: f.expected_inflows,\n  expected_outflows: f.expected_outflows,\n  minimum_projected_balance: f.minimum_projected_balance,\n  day_of_minimum: f.day_of_minimum,\n  days_to_breach: f.days_to_breach\n} }];"
+      },
+      "id": "b89c6888-5499-4c84-82b1-d2f46ebba2a6",
+      "name": "Prepare Forecast Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "forecasts",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "91b95555-87fc-473a-af01-092d4f602541",
+      "name": "Save Forecast",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2272,
+        192
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Build Forecast').first().json }];"
+      },
+      "id": "396e889b-4e19-47a7-9d52-9ed1dd7be8b1",
+      "name": "Return Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2544,
+        192
+      ]
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "company_id": "BP-001",
+          "run_id": "W3-T1",
+          "horizon_days": 30
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get Cash Position",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cash Position": {
+      "main": [
+        [
+          {
+            "node": "Get Receivables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Receivables": {
+      "main": [
+        [
+          {
+            "node": "Get Payables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Payables": {
+      "main": [
+        [
+          {
+            "node": "Get Commitments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Commitments": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Fuel Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Fuel Price": {
+      "main": [
+        [
+          {
+            "node": "Build Forecast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Forecast": {
+      "main": [
+        [
+          {
+            "node": "Prepare Forecast Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Forecast Row": {
+      "main": [
+        [
+          {
+            "node": "Save Forecast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Forecast": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "dc1350dd-9fde-45df-8b8f-3fc596f4ff9f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7cc6ab146e7286db115c5308299848109c07d40b25093c59a6def55feac27966"
+  },
+  "nodeGroups": [],
+  "id": "ELdMlt0BsRtAQwZG",
+  "tags": []
+}

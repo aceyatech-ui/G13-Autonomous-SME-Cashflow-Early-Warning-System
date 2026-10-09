@@ -1,0 +1,157 @@
+{
+  "name": "W05 - AI Analysis,",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const f = $('When Executed by Another Workflow').first().json;\nconst m = n => 'N' + (Number(n) / 1e6).toFixed(2) + 'm';\nconst price = Number(f.fuel_price || 1250);\nconst pct = Math.round((price - 1250) / 1250 * 100);\nconst extra = 2880 * (price - 1250);\nconst invoices = (f.open_invoices || [])\n  .map(i => `- ${i.invoice_id} ${i.client_name}: ${m(i.amount)} due Day ${i.due_day}`)\n  .join('\\n');\n\nconst prompt = `You are a cashflow analyst for BrightPath Logistics, a Nigerian delivery company.\nUse ONLY the verified figures below. Do not invent any number, client or date.\n\nVERIFIED FIGURES\n- Risk state: ${f.risk_state}\n- Lowest projected balance in the next 30 days: ${m(f.minimum_projected_balance)} on Day ${f.day_of_minimum}\n- Safety buffer: N4.00m\n- Days until the buffer is breached: ${f.days_to_breach}\n- Current cash: ${m(f.current_cash)}\n- Diesel price: N${price} per litre (normal N1250), a ${pct}% rise, adding ${m(extra)} to each weekly fuel payment of 2,880 litres\n- Open invoices:\n${invoices}\n\nReturn ONLY a JSON object, no markdown, with exactly these keys:\n{\"summary\": \"one sentence\", \"cause\": \"one sentence\", \"urgency\": \"LOW|MEDIUM|HIGH|CRITICAL\", \"actions\": [\"action 1\", \"action 2\", \"action 3\"]}\nThe three actions must be practical and specific, use the figures and invoices above, and cover three different levers: (1) ask a named client to pay an open invoice early, offering a small early-payment discount, (2) ask Harbour Fuels to split a fuel payment into two instalments, (3) a temporary fuel surcharge on new invoices or a route/fuel-use cut.`;\n\nreturn [{ json: { prompt } }];\n\nreturn [{ json: { prompt } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "7032455a-6222-4e31-831c-4a2fb09f1439",
+      "name": "Build Prompt"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3-flash-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3-flash-preview"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.prompt }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "ef0e4e10-1f97-4880-9793-55794b22986a",
+      "name": "Gemini Analysis",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "e2lBf7aZ4MfTpN3B",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('When Executed by Another Workflow').first().json;\nconst r = $input.first().json;\nlet a;\nif (r.summary) {\n  a = r;\n} else {\n  let text = r.content?.parts?.[0]?.text ?? r.text ?? r.output ?? '';\n  if (typeof text !== 'string') text = JSON.stringify(text);\n  text = text.replace(/```json|```/g, '').trim();\n  try { a = JSON.parse(text); }\n  catch (e) { throw new Error('AI returned invalid JSON: ' + text.slice(0, 200)); }\n}\n\nconst urgencies = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];\nconst errs = [];\nif (!a.summary || typeof a.summary !== 'string') errs.push('summary missing');\nif (!a.cause || typeof a.cause !== 'string') errs.push('cause missing');\nif (!urgencies.includes(String(a.urgency).toUpperCase())) errs.push('urgency invalid');\nif (!Array.isArray(a.actions) || a.actions.length !== 3 ||\n    a.actions.some(x => typeof x !== 'string' || !x.trim()))\n  errs.push('actions must be exactly 3 non-empty strings');\nif (errs.length) throw new Error('AI output failed validation: ' + errs.join('; '));\n\nreturn [{ json: {\n  company_id: base.company_id,\n  run_id: base.run_id,\n  risk_state: base.risk_state,\n  summary: a.summary,\n  cause: a.cause,\n  urgency: String(a.urgency).toUpperCase(),\n  actions: a.actions,\n  ai_source: 'gemini'\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "81adbaad-0d96-427b-925e-4a664330b5db",
+      "name": "Validate Output"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        0
+      ],
+      "id": "f136abc8-a9b1-4aee-8b54-290426b8b47d",
+      "name": "When Executed by Another Workflow"
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "company_id": "BP-001",
+          "run_id": "W5-T1",
+          "risk_state": "CRITICAL",
+          "minimum_projected_balance": 970000,
+          "day_of_minimum": 14,
+          "days_to_breach": 9,
+          "current_cash": 16000000,
+          "fuel_price": 2000,
+          "open_invoices": [
+            {
+              "invoice_id": "INV-1041",
+              "client_name": "Coastal Beverages Ltd",
+              "amount": 6400000,
+              "due_day": 15
+            },
+            {
+              "invoice_id": "INV-1046",
+              "client_name": "Delta Build Supplies",
+              "amount": 4800000,
+              "due_day": 19
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Analysis": {
+      "main": [
+        [
+          {
+            "node": "Validate Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "88352d0e-ecc4-412a-b069-0cf6754545b5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7cc6ab146e7286db115c5308299848109c07d40b25093c59a6def55feac27966"
+  },
+  "nodeGroups": [],
+  "id": "yNWKSUkBytuKQiTx",
+  "tags": []
+}

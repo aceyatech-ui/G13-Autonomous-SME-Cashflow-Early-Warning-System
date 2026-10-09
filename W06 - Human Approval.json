@@ -1,0 +1,453 @@
+{
+  "name": "W06 - Human Approval",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const d = $('When Executed by Another Workflow').first().json;\nconst FOUNDER_EMAIL = 'nexcraftcreativestudio@gmail.com';\nconst OPS_EMAIL = 'brendanokonji628@gmail.com';\nconst m = n => 'N' + (Number(n) / 1e6).toFixed(2) + 'm';\nconst actions = (d.actions || []).map((a, i) => `${i + 1}. ${a}`).join('\\n');\n\nconst message = `CRITICAL cash alert for BrightPath Logistics.\n\nLowest projected balance: ${m(d.minimum_projected_balance)} on Day ${d.day_of_minimum} (safety buffer N4.00m).\nDays to breach: ${d.days_to_breach}\n\n${d.summary || ''}\nCause: ${d.cause || ''}\n\nRecommended actions:\n${actions}\n\nPlease approve or reject.`;\n\nreturn [{ json: { ...d, founder_email: FOUNDER_EMAIL, ops_email: OPS_EMAIL,\n  subject: 'APPROVAL NEEDED: BrightPath critical cash alert', message } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "c81fd47b-2e1b-48b2-89c6-1926844730c3",
+      "name": "Prepare Request"
+    },
+    {
+      "parameters": {
+        "tableId": "approvals",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "run_id",
+              "fieldValue": "={{ $json.run_id }}"
+            },
+            {
+              "fieldId": "company_id",
+              "fieldValue": "={{ $json.company_id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "PENDING"
+            },
+            {
+              "fieldId": "=risk_state",
+              "fieldValue": "={{ $json.risk_state }}"
+            },
+            {
+              "fieldId": "decision",
+              "fieldValue": "Pending"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "33f23262-b533-4ca4-8b52-557cb28513ac",
+      "name": "Create Approval Record",
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $('Prepare Request').first().json.founder_email }}",
+        "subject": "={{ $('Prepare Request').first().json.subject }}",
+        "message": "={{ $('Prepare Request').first().json.message }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 2,
+              "resumeUnit": "minutes"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "ea94edde-957f-4aae-afb2-40cd2a1d9cc4",
+      "name": "Ask Founder",
+      "webhookId": "60a77b75-386a-4adf-aed2-67dfe76b068c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "uAlUkoum7UoRs1iX",
+          "name": "Gmail account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const a = $input.first().json.data?.approved;\nlet decision = 'Expired';\nif (a === true) decision = 'Approved';\nelse if (a === false) decision = 'Rejected';\nreturn [{ json: {\n  decision,\n  decided_by: decision === 'Expired' ? 'none' : 'Mr. Briggs (founder)',\n  decided_at: new Date().toISOString(),\n  risk_state: 'CRITICAL'\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "918368cc-c171-4629-bb68-0c135b42a989",
+      "name": "Evaluate Founder Reply"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "655d46ec-34a1-44e5-ad90-c6c6e8f817a3",
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "Expired",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1328,
+        0
+      ],
+      "id": "c0153186-b5c7-486a-a437-f142ee839a5a",
+      "name": "No Response?"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Prepare Request').first().json.founder_email }}",
+        "subject": "REMINDER: approval still pending, escalating to Operations Manager",
+        "message": "No reply received. The request is being escalated to Mr. Nwankwo.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        -176
+      ],
+      "id": "8d8b2902-8af4-49ab-b7a9-2d52a98a535f",
+      "name": "Send Reminder",
+      "webhookId": "3a6e2d48-c8bb-4f1d-af8c-b981db576af4",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "uAlUkoum7UoRs1iX",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $('Prepare Request').first().json.ops_email }}",
+        "subject": "ESCALATED: approval still pending, escalating to Operations Manager",
+        "message": "No reply received. The request is being escalated to Mr. Nwankwo.",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 2,
+              "resumeUnit": "minutes"
+            }
+          },
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1648,
+        -176
+      ],
+      "id": "6b869732-3792-4220-b2d8-0008d1e12593",
+      "name": "Ask Ops Manager",
+      "webhookId": "58afe1e4-adf3-4531-8233-a4201db83b75",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "uAlUkoum7UoRs1iX",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const a = $input.first().json.data?.approved;\nlet decision = 'Expired';\nif (a === true) decision = 'Approved';\nelse if (a === false) decision = 'Rejected';\nreturn [{ json: {\n  decision,\n  decided_by: decision === 'Expired' ? 'none (escalated)' : 'Mr. Nwankwo (operations manager)',\n  decided_at: new Date().toISOString(),\n  risk_state: 'HUMAN_ESCALATION'\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        -176
+      ],
+      "id": "5e1d3d80-07c6-421e-b3f9-025288a537d2",
+      "name": "Evaluate Ops Reply"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "approvals",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Create Approval Record').first().json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "Decided"
+            },
+            {
+              "fieldId": "decision",
+              "fieldValue": "={{ $json.decision }}"
+            },
+            {
+              "fieldId": "decided_by",
+              "fieldValue": "={{ $json.decided_by }}"
+            },
+            {
+              "fieldId": "decided_at",
+              "fieldValue": "={{ $json.decided_at }}"
+            },
+            {
+              "fieldId": "risk_state",
+              "fieldValue": "={{ $json.risk_state }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1984,
+        16
+      ],
+      "id": "7f9f5695-54cd-4517-80b9-752960bbd61c",
+      "name": "Record Decision",
+      "credentials": {
+        "supabaseApi": {
+          "id": "mx0HNznOASKO0db0",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nreturn [{ json: {\n  run_id: $('Prepare Request').first().json.run_id,\n  decision: row.decision,\n  decided_by: row.decided_by,\n  decided_at: row.decided_at\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        16
+      ],
+      "id": "f6889e92-709b-49ba-a132-d531f0a0876c",
+      "name": "Return Result"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "8e7015e1-83fb-497f-a5c1-c2f5232269bf",
+      "name": "When Executed by Another Workflow"
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "company_id": "BP-001",
+          "run_id": "W6-T1",
+          "risk_state": "CRITICAL",
+          "minimum_projected_balance": 970000,
+          "day_of_minimum": 14,
+          "days_to_breach": 9,
+          "summary": "Cash is projected to fall to N0.97m on Day 14.",
+          "cause": "Diesel rose 60% to N2,000 per litre.",
+          "actions": [
+            "Ask Coastal Beverages to pay INV-1041 early.",
+            "Ask Harbour Fuels to split the Day 14 payment.",
+            "Apply a temporary fuel surcharge."
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Prepare Request": {
+      "main": [
+        [
+          {
+            "node": "Create Approval Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Approval Record": {
+      "main": [
+        [
+          {
+            "node": "Ask Founder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask Founder": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Founder Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Founder Reply": {
+      "main": [
+        [
+          {
+            "node": "No Response?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Response?": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reminder": {
+      "main": [
+        [
+          {
+            "node": "Ask Ops Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask Ops Manager": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Ops Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Ops Reply": {
+      "main": [
+        [
+          {
+            "node": "Record Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Decision": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Prepare Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "caa23afd-b457-40b2-ba1b-672f489bf9a5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7cc6ab146e7286db115c5308299848109c07d40b25093c59a6def55feac27966"
+  },
+  "nodeGroups": [],
+  "id": "ukQQfFp993EnFCIq",
+  "tags": []
+}
